@@ -3,9 +3,10 @@ from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from user.models import User
+from user.models import User, UserProfile
+from user.permissions import IsAuthenticatedOrAdmin
 from user.serializers import CustomTokenObtainPairSerializer, RegisterUserSerializer, LoginUserSerializer, \
-    LogoutUserSerializer
+    LogoutUserSerializer, UserProfileSerializer, UserSerializer
 
 
 # Create your views here.
@@ -60,3 +61,12 @@ class LogoutUserView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UserProfileAPIView(generics.RetrieveAPIView, generics.UpdateAPIView):
+    serializer_class = UserProfileSerializer
+    permission_classes = [IsAuthenticatedOrAdmin, ]
+
+    def get_object(self):
+        return UserProfile.objects.get(user=self.request.user)
+

@@ -1,10 +1,8 @@
 from tokenize import TokenError
-
 from django.contrib import auth
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import phone_number_regex, User
+from .models import phone_number_regex, User, UserProfile
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 
@@ -62,7 +60,6 @@ class LoginUserSerializer(serializers.ModelSerializer):
     def get_tokens(self, obj):
         user = User.objects.get(email=obj['email'])
         return {
-            'refresh': user.get_pair_token()['refresh'],
             'access': user.get_pair_token()['access'],
         }
 
@@ -100,3 +97,42 @@ class LogoutUserSerializer(serializers.Serializer):
             RefreshToken(self.token).blacklist()
         except TokenError:
             self.fail("Invalid token!")
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = (
+            'first_name',
+            'last_name',
+            'email',
+            'phone_number',
+        )
+        read_only_fields = ('email', 'phone_number')
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+
+    class Meta:
+        model = UserProfile
+        fields = (
+            'user',
+            'photo',
+            'address'
+        )
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', None)
+        email = self.data['user']['email']
+        phone_number = self.data['user']['phone_number']
+        user = User.objects.get(email=email, phone_number=phone_number)
+        user_serializer = UserSerializer(data=user_data)
+        if user_serializer.is_valid():
+            user_serializer.update(user, user_data)
+        instance.photo = validated_data.get('photo', instance.photo)
+        instance.address = validated_data.get('address', instance.address)
+        instance.save()
+        return instance
+
+
